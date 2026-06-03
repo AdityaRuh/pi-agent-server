@@ -144,3 +144,52 @@ export async function getRuntimeStatus(): Promise<unknown> {
   });
   return res.json();
 }
+
+// ── steer / followUp ────────────────────────────────────────────────────────
+
+export async function postSteer(input: {
+  conversationId: string;
+  text: string;
+}): Promise<Response> {
+  return fetch(`${env.piSdkRuntimeUrl}/steer`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}
+
+export async function postFollowUp(input: {
+  conversationId: string;
+  text: string;
+}): Promise<Response> {
+  return fetch(`${env.piSdkRuntimeUrl}/follow-up`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}
+
+// ── model + thinking control ────────────────────────────────────────────────
+
+export async function postModel(input: {
+  conversationId: string;
+  modelId?: string;
+  provider?: string;
+}): Promise<Response> {
+  return fetch(`${env.piSdkRuntimeUrl}/model`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}
+
+export async function postThinkingLevel(input: {
+  conversationId: string;
+  level?: string;
+}): Promise<Response> {
+  return fetch(`${env.piSdkRuntimeUrl}/thinking-level`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+}

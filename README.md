@@ -16,18 +16,42 @@ The network façade. Sits between the **Ruh-agent-gateway** and the
 All endpoints require `Authorization: Bearer <GATEWAY_SHARED_TOKEN>` (or the
 equivalent `X-Gateway-Token` header).
 
-| Method | Path                       | Purpose                                              |
-| ------ | -------------------------- | ---------------------------------------------------- |
-| POST   | `/chat`                    | Start a chat run. SSE response in the gateway vocab. |
-| GET    | `/resume`                  | Re-attach to an in-flight run (stub for MVP).        |
-| POST   | `/stop`                    | Abort the active run.                                |
-| POST   | `/approve`                 | Forward an approval decision.                        |
-| POST   | `/ask-user/answer`         | Forward an ask-user answer.                          |
-| GET    | `/status`                  | Liveness + active conversation ids.                  |
+| Method | Path                       | Purpose                                                       |
+| ------ | -------------------------- | ------------------------------------------------------------- |
+| POST   | `/chat`                    | Start a chat run. SSE response in the gateway vocab.          |
+| GET    | `/resume`                  | Replay missed events since `?fromEventId=N`, then tail live.  |
+| POST   | `/stop`                    | Abort the active run.                                         |
+| POST   | `/approve`                 | Forward an approval decision.                                 |
+| POST   | `/ask-user/answer`         | Forward an ask-user answer.                                   |
+| POST   | `/steer`                   | Inject extra context into a streaming run.                    |
+| POST   | `/follow-up`               | Queue a follow-up prompt after the current turn.              |
+| POST   | `/model`                   | Switch model mid-conversation.                                |
+| POST   | `/thinking-level`          | Set or cycle the model's thinking depth.                      |
+| GET    | `/status`                  | Liveness + buffer summary + runtime status.                   |
 
 The SSE event vocabulary emitted by `/chat` and `/resume` is identical to the
-one the existing OpenClaw gateway flow emits. **The gateway does not need any
-code changes to talk to this server.**
+one the existing OpenClaw gateway flow emits — `run_start`, `thinking_*`,
+`message_*`, `tool_*`, `approval_required`, `agent_end`, plus `subagent_*`
+and `usage` for nested progress and cost tracking. **The gateway does not
+need any code changes to talk to this server.**
+
+## Resume mechanics
+
+Every SSE event forwarded by `/chat` is also recorded in an in-memory
+per-conversation event buffer (ring of the last 1000 events). When the FE
+reconnects:
+
+```
+GET /resume?conversationId=c1&fromEventId=42
+```
+
+…the server replays events `43, 44, …` and either closes (if the run has
+finished) or keeps streaming live events as they arrive.
+
+This is in-memory only — a process restart clears the buffers. For
+multi-replica deployment, swap `src/lib/event-buffer.ts` for a Redis
+Streams (`xadd` / `xrange`) implementation; the interface is intentionally
+compatible.
 
 ## Run locally with both images
 

@@ -131,6 +131,60 @@ export function formatPiEvent(
       emit(ev.type, { ...(ev as object), conversationId: ctx.conversationId });
       return;
 
+    // Sub-agent events from the subagent.proxy extension.
+    case "subagent_start":
+    case "subagent_end":
+      emit(ev.type, { ...(ev as object), conversationId: ctx.conversationId });
+      return;
+    case "subagent_event": {
+      // Nested Pi SDK events from a child session — recursively translate
+      // them so the FE can render nested progress with subagent_* names.
+      const child = ev as {
+        subagentId?: string;
+        name?: string;
+        event?: unknown;
+      };
+      const childEvent = child.event as { type?: string } | undefined;
+      if (!childEvent) return;
+      // Re-emit each child token/tool event with a subagent_ prefix so the
+      // FE can distinguish parent vs. child streams.
+      formatPiEvent(
+        (innerName, innerData) => {
+          emit(`subagent_${innerName}`, {
+            ...(innerData as object),
+            subagentId: child.subagentId,
+            subagent_name: child.name,
+          });
+        },
+        ctx,
+        childEvent,
+      );
+      return;
+    }
+
+    // Usage / cost telemetry.
+    case "usage_update":
+    case "message_usage": {
+      const u = ev as {
+        usage?: {
+          input?: number;
+          output?: number;
+          cacheRead?: number;
+          cacheWrite?: number;
+        };
+        cost?: { total?: number; input?: number; output?: number };
+        model?: string;
+      };
+      emit("usage", {
+        type: "usage",
+        usage: u.usage ?? {},
+        cost: u.cost ?? {},
+        model: u.model,
+        timestamp: nowIso(),
+      });
+      return;
+    }
+
     default:
       return; // unknown top-level event — drop
   }
