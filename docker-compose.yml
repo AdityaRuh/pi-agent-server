@@ -1,0 +1,83 @@
+# ────────────────────────────────────────────────────────────────────────────
+# Joint dev environment for the two PI Agent images.
+#
+#   pi-agent-server  → port 8080 on host  (the public face)
+#   pi-sdk-runtime   → port 7000 internal only (talks to pi-agent-server)
+#
+# Run from this directory:
+#   docker compose up --build
+#
+# Hit the server from your host:
+#   curl -N -X POST http://localhost:8080/chat \
+#     -H "Authorization: Bearer dev-gateway-token" \
+#     -H "Content-Type: application/json" \
+#     -d '{"conversationId":"c1","message":"list workspace files"}'
+# ────────────────────────────────────────────────────────────────────────────
+
+services:
+  pi-sdk-runtime:
+    build:
+      context: ../pi-sdk-runtime
+      dockerfile: Dockerfile
+    container_name: pi-sdk-runtime
+    # Pull LLM provider API keys from a local .env (gitignored).
+    # See pi-sdk-runtime docs/providers.md for the full list of supported vars
+    # (ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, ...).
+    env_file:
+      - .env
+    environment:
+      PORT: 7000
+      HOST: 0.0.0.0
+      WORKSPACE_DIR: /workspace
+      PI_AGENT_DIR: /agent-data
+      SYSTEM_PROMPT_PATH: /app/agent/system-pi.md
+      INTERNAL_SHARED_TOKEN: dev-internal-token
+      LOG_LEVEL: info
+    volumes:
+      # Bind-mount a real PI agent bundle so the runtime has something to run.
+      # `pi-test-agent` is `johnny-linear-279` (Linear + Slack standup bot) —
+      # a known-good fixture cloned from github.com/test-ruh/pi-test-234234.
+      # Swap this path to point at any other PI agent bundle (must contain
+      # a `.pi/` directory + optional `skills/`).
+      - ../pi-test-agent:/workspace
+      - pi-agent-data:/agent-data
+    networks:
+      - pi-net
+    # Intentionally NOT exposing port 7000 to the host — only reachable via
+    # the internal Docker network.
+    healthcheck:
+      # Use Bun itself — guaranteed to be in the image. `wget` isn't.
+      test:
+        - "CMD-SHELL"
+        - "bun -e \"fetch('http://localhost:7000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  pi-agent-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pi-agent-server
+    depends_on:
+      pi-sdk-runtime:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      HOST: 0.0.0.0
+      PI_SDK_RUNTIME_URL: http://pi-sdk-runtime:7000
+      INTERNAL_SHARED_TOKEN: dev-internal-token
+      GATEWAY_SHARED_TOKEN: dev-gateway-token
+      LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+    networks:
+      - pi-net
+
+networks:
+  pi-net:
+    driver: bridge
+
+volumes:
+  pi-agent-data:
