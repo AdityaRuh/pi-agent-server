@@ -35,6 +35,25 @@ one the existing OpenClaw gateway flow emits — `run_start`, `thinking_*`,
 and `usage` for nested progress and cost tracking. **The gateway does not
 need any code changes to talk to this server.**
 
+### Attachments
+
+`POST /chat` accepts an optional `attachments` array. Each entry is
+`{ url, mimeType, name, sizeBytes? }`. The runtime:
+
+- downloads each URL into `/workspace/attachments/<conversationId>/`,
+- passes images as base64 `PromptOptions.images` to `session.prompt`,
+- appends a structured prompt suffix that lists document local paths so
+  the agent can call its bundled `document_parse` tool on demand,
+- emits `attachments_processed` once classification is done and
+  `attachment_error` (with `reason: unsupported | too-large | fetch-failed | processing-failed`)
+  if anything blocks the run.
+
+Supported image MIMEs: `image/png`, `image/jpeg`, `image/webp`, `image/gif`.
+Supported document MIMEs: `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx`,
+`rtf`, `csv`, `tsv`, `md`, `txt`, `yaml`, `json`. Anything else fails with
+a clear `attachment_error`. Defaults: 10 MB image cap, 20 MB document cap,
+10 attachments per message (configurable via runtime env vars).
+
 ## Resume mechanics
 
 Every SSE event forwarded by `/chat` is also recorded in an in-memory

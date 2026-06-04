@@ -10,9 +10,17 @@
 
 import { env } from "@/lib/env";
 
+export interface IncomingAttachment {
+  url: string;
+  mimeType: string;
+  name: string;
+  sizeBytes?: number;
+}
+
 export interface PromptStreamInput {
   conversationId: string;
   message: string;
+  attachments?: IncomingAttachment[];
   signal?: AbortSignal;
 }
 
@@ -43,6 +51,9 @@ export async function* streamPrompt(input: PromptStreamInput): AsyncGenerator<Ss
     body: JSON.stringify({
       conversationId: input.conversationId,
       message: input.message,
+      ...(input.attachments && input.attachments.length > 0
+        ? { attachments: input.attachments }
+        : {}),
     }),
     signal: input.signal,
   });

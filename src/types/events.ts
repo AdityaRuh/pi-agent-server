@@ -20,7 +20,34 @@ export type FeEventName =
   | "approval_required"
   | "agent_end"
   | "keep-alive"
-  | "error";
+  | "error"
+  // Attachment lifecycle (runtime → server → FE).
+  | "attachments_processed"
+  | "attachment_error";
+
+export interface AttachmentsProcessed {
+  type: "attachments_processed";
+  conversationId: string;
+  count: number;
+  images: number;
+  documents: number;
+  references: Array<{
+    id: string;
+    name: string;
+    kind: "image" | "document";
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  timestamp: string;
+}
+
+export interface AttachmentErrorPayload {
+  type: "attachment_error";
+  reason: "unsupported" | "too-large" | "fetch-failed" | "processing-failed";
+  message: string;
+  attachment?: unknown;
+  timestamp: string;
+}
 
 export interface RunStart {
   type: "run_start";

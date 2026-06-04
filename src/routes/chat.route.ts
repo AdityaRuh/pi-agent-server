@@ -75,6 +75,9 @@ export const chatRoute = new Elysia({ name: "chat-routes" })
           const stream = streamPrompt({
             conversationId,
             message: body.message,
+            ...(body.attachments && body.attachments.length > 0
+              ? { attachments: body.attachments }
+              : {}),
             signal: ac.signal,
           });
 
@@ -120,6 +123,12 @@ export const chatRoute = new Elysia({ name: "chat-routes" })
       body: t.Object({
         conversationId: t.String({ minLength: 1 }),
         message: t.String({ minLength: 1 }),
+        attachments: t.Optional(t.Array(t.Object({
+          url: t.String({ minLength: 1 }),
+          mimeType: t.String({ minLength: 1 }),
+          name: t.String({ minLength: 1 }),
+          sizeBytes: t.Optional(t.Number({ minimum: 0 })),
+        }))),
       }),
     },
   )
