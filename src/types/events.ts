@@ -23,7 +23,9 @@ export type FeEventName =
   | "error"
   // Attachment lifecycle (runtime → server → FE).
   | "attachments_processed"
-  | "attachment_error";
+  | "attachment_error"
+  // Generated output artifacts rendered inline in chat.
+  | "artifact_created";
 
 export interface AttachmentsProcessed {
   type: "attachments_processed";
@@ -46,6 +48,28 @@ export interface AttachmentErrorPayload {
   reason: "unsupported" | "too-large" | "fetch-failed" | "processing-failed";
   message: string;
   attachment?: unknown;
+  timestamp: string;
+}
+
+export interface ArtifactPayload {
+  id: string;
+  type: string;
+  title?: string;
+  file_name: string;
+  file_type: string;
+  file_url: string;
+  file_size?: number;
+  preview_url?: string;
+  content_preview?: string;
+  source?: string;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ArtifactCreated {
+  type: "artifact_created";
+  conversationId: string;
+  artifact: ArtifactPayload;
   timestamp: string;
 }
 
